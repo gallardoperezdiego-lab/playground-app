@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import os
 from datetime import date, datetime
 from pathlib import Path
 
 import streamlit as st
+
+OCR_ENABLED = os.getenv("ENABLE_OCR", "false").lower() == "true"
 
 from contract_utils import (
     DEFAULT_PROPERTY_CSV_PATH,
@@ -238,24 +241,27 @@ def collect_tenants(tenant_count: int) -> list[TenantData]:
             id_number = ""
             if id_document_type:
                 id_number = st.text_input("ID number", key=f"{tenant_key}_id_number")
-            uploaded_id = st.file_uploader(
-                "Upload ID image for OCR",
-                type=["png", "jpg", "jpeg"],
-                key=f"{tenant_key}_upload",
-                help="Upload a clear image. OCR is best-effort and should be reviewed before generating the contract.",
-            )
-            if st.button(f"Extract from ID for tenant {tenant_number}", key=f"{tenant_key}_ocr"):
-                if uploaded_id is None:
-                    st.warning("Upload an ID image before running OCR.")
-                elif not id_document_type:
-                    st.warning("Select an ID document type before running OCR.")
-                else:
-                    try:
-                        extracted = extract_id_details(uploaded_id, uploaded_id.name, id_document_type)
-                        st.session_state[f"{tenant_key}_ocr_prefill"] = extracted
-                        st.rerun()
-                    except Exception as exc:  # noqa: BLE001
-                        st.warning(f"OCR could not extract the ID details: {exc}")
+            if OCR_ENABLED:
+                uploaded_id = st.file_uploader(
+                    "Upload ID image for OCR",
+                    type=["png", "jpg", "jpeg"],
+                    key=f"{tenant_key}_upload",
+                    help="Upload a clear image. OCR is best-effort and should be reviewed before generating the contract.",
+                )
+                if st.button(f"Extract from ID for tenant {tenant_number}", key=f"{tenant_key}_ocr"):
+                    if uploaded_id is None:
+                        st.warning("Upload an ID image before running OCR.")
+                    elif not id_document_type:
+                        st.warning("Select an ID document type before running OCR.")
+                    else:
+                        try:
+                            extracted = extract_id_details(uploaded_id, uploaded_id.name, id_document_type)
+                            st.session_state[f"{tenant_key}_ocr_prefill"] = extracted
+                            st.rerun()
+                        except Exception as exc:  # noqa: BLE001
+                            st.warning(f"OCR could not extract the ID details: {exc}")
+            else:
+                st.info("💡 OCR is only available on the internal desktop version of this tool.")
 
             tenants.append(
                 TenantData(
